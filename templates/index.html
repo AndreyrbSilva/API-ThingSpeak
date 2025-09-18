@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Temperatura & Umidade</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Dashboard Interativo</h1>
+    <div class="chart-container">
+        <h2>🌡️ Temperatura (°C)</h2>
+        <canvas id="tempChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <h2>💧 Umidade (%)</h2>
+        <canvas id="umidChart"></canvas>
+    </div>
+
+    <script>
+        let tempChart, umidChart;
+
+        async function fetchData() {
+            const response = await fetch("/data");
+            return await response.json();
+        }
+
+        async function renderCharts() {
+            const data = await fetchData();
+
+            // Configuração padrão para os dois gráficos
+            const commonOptions = (labelUnit) => ({
+                responsive: true,
+                plugins: {
+                    legend: {
+                        labels: { color: "#fff" }
+                    },
+                    title: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const date = new Date(context.label);
+                                return date.toLocaleString("pt-BR", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                    hour12: true
+                                }) + " → " + context.formattedValue + " " + labelUnit;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: "time",
+                        time: {
+                            unit: "minute",
+                            displayFormats: {
+                                minute: "dd/MM hh:mm a" // dia/mês hora:minuto AM/PM
+                            }
+                        },
+                        ticks: { color: "#fff" }
+                    },
+                    y: {
+                        ticks: { color: "#fff" }
+                    }
+                }
+            });
+
+            // Temperatura
+            const ctxTemp = document.getElementById("tempChart").getContext("2d");
+            if (tempChart) tempChart.destroy();
+            tempChart = new Chart(ctxTemp, {
+                type: "line",
+                data: {
+                    labels: data.labels, // precisa ser ISO ex: 2025-09-18T18:38:13Z
+                    datasets: [{
+                        label: "Temperatura (°C)",
+                        data: data.temperatura,
+                        borderColor: "red",
+                        backgroundColor: "rgba(255, 0, 0, 0.2)",
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: commonOptions("°C")
+            });
+
+            // Umidade
+            const ctxUmid = document.getElementById("umidChart").getContext("2d");
+            if (umidChart) umidChart.destroy();
+            umidChart = new Chart(ctxUmid, {
+                type: "line",
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: "Umidade (%)",
+                        data: data.umidade,
+                        borderColor: "blue",
+                        backgroundColor: "rgba(0, 0, 255, 0.2)",
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: commonOptions("%")
+            });
+        }
+
+        renderCharts();
+
+        // Atualiza a cada 30 segundos
+        setInterval(renderCharts, 30000);
+    </script>
+</body>
+</html>
